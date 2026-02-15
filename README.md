@@ -2,7 +2,7 @@
 
 Interactive demo of the CreatorPulse video generation pipeline. Type a prompt, walk through each production step, and publish to YouTube — all from one interface.
 
-**[Live Demo →](https://yourusername.github.io/creatorpulse-demo/)**
+**[Live Demo →](https://aabom.github.io/creatorpulse-demo/)**
 
 ## What This Shows
 
@@ -19,40 +19,7 @@ CreatorPulse is an AI-powered SaaS platform that turns a single text prompt into
 
 Each step includes an approval gate so the creator stays in control of the output.
 
-## Tech Stack
-
-This demo is a single `index.html` file with zero build steps:
-
-- **React 18** via CDN
-- **Babel** for in-browser JSX compilation
-- **DM Sans** + **JetBrains Mono** from Google Fonts
-- Pure inline CSS — no framework, no Tailwind
-
 The production version is built with .NET 8, Blazor Server, Azure Durable Functions, PostgreSQL, and SignalR.
-
-## Run Locally
-
-Just open the file:
-
-```bash
-# Clone
-git clone https://github.com/yourusername/creatorpulse-demo.git
-cd creatorpulse-demo
-
-# Open in browser
-open index.html        # macOS
-start index.html       # Windows
-xdg-open index.html    # Linux
-```
-
-No server, no dependencies, no install.
-
-## Deploy to GitHub Pages
-
-1. Push `index.html` to the `main` branch
-2. Go to **Settings → Pages**
-3. Set source to **Deploy from a branch → main / root**
-4. Site goes live at `https://yourusername.github.io/creatorpulse-demo/`
 
 ## Cost Model
 
