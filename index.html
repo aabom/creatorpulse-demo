@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CreatorPulse — Prompt to Publish</title>
+  <meta name="description" content="AI-powered video generation pipeline. Go from a single prompt to a published YouTube video." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body, #root { height: 100%; }
+    body { background: #08080D; }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #2a2a35; border-radius: 3px; }
+    @keyframes fadeUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+    @keyframes pulseRing { 0%,100% { box-shadow: 0 0 0 0 rgba(110,231,183,0.3); } 50% { box-shadow: 0 0 0 12px rgba(110,231,183,0); } }
+    @keyframes successPop { 0% { transform:scale(0.8); opacity:0; } 50% { transform:scale(1.05); } 100% { transform:scale(1); opacity:1; } }
+    @keyframes gradientFlow { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+    .fade-up { animation: fadeUp 0.45s ease forwards; }
+    .card { background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; }
+    .card:hover { border-color: rgba(255,255,255,0.1); }
+    textarea:focus, input:focus { outline: none; }
+    .glow-btn { position: relative; overflow: hidden; }
+    .glow-btn::after { content:''; position:absolute; inset:-2px; border-radius:inherit; background:linear-gradient(135deg,#6EE7B7,#3B82F6,#6EE7B7); background-size:300% 300%; animation:gradientFlow 3s ease infinite; z-index:-1; opacity:0.5; filter:blur(8px); }
+  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect, useCallback } = React;
+
+    // — Mock data —
+    const MOCK_SCRIPT = `[HOOK - 0:00-0:08]
+"They told you discipline is about willpower. They were wrong."
+
+[INTRO - 0:08-0:30]
+Every morning, millions of people wake up and tell themselves today will be different. Today they'll go to the gym. Today they'll eat clean. Today they'll finally start that project. But by noon, the motivation fades. The snooze button wins. The old habits creep back in.
+
+[SECTION 1 - THE MYTH - 0:30-2:15]
+Here's what nobody tells you about discipline: it was never about being tough. The most disciplined people on earth aren't grinding through pain every single day. They've built systems that make the right choice the easy choice...
+
+[SECTION 2 - THE SCIENCE - 2:15-4:30]
+Dr. Wendy Wood at USC studied habits for thirty years. What she found shocked the self-help industry. Roughly 43 percent of what we do every day isn't driven by decisions — it's automatic behavior...
+
+[SECTION 3 - THE METHOD - 4:30-7:00]
+So how do you actually build this? Three steps. First: environment design. Remove friction from good habits, add friction to bad ones...
+
+[OUTRO + CTA - 7:00-8:00]
+Discipline isn't a personality trait. It's architecture. And now you have the blueprint. If this changed how you think about habits, subscribe — we break down one life-changing idea every week.`;
+
+    const MOCK_SEO = {
+      titles: [
+        "Discipline Is a Lie — Here's What Actually Works",
+        "Why Willpower Fails (And What to Do Instead)",
+      ],
+      description: `Discipline isn't about willpower — it's about systems. In this video, we break down the science of habit formation from Dr. Wendy Wood's 30 years of research at USC, and give you a 3-step method to build unbreakable routines without relying on motivation.\n\n⏱ Timestamps:\n0:00 - The Hook\n0:30 - The Myth of Willpower\n2:15 - The Science of Habits\n4:30 - The 3-Step Method\n7:00 - Your Blueprint\n\n🔔 Subscribe for weekly breakdowns of ideas that change how you think.\n\n#discipline #habits #selfimprovement #motivation #productivity`,
+      tags: ["discipline", "habits", "self improvement", "motivation", "productivity", "willpower", "atomic habits", "routine", "mindset", "personal development"],
+    };
+
+    const PIPELINE_STEPS = [
+      { id: "script", label: "Script", icon: "📝", desc: "AI-generated voiceover script with hook, sections & CTA" },
+      { id: "seo", label: "SEO & Meta", icon: "🔍", desc: "Title variants, description, tags optimized for your audience" },
+      { id: "voice", label: "Voiceover", icon: "🎙", desc: "ElevenLabs neural voice with emotion control" },
+      { id: "visuals", label: "Visuals", icon: "🎬", desc: "Stock footage + AI images matched to script segments" },
+      { id: "thumbnails", label: "Thumbnails", icon: "🖼", desc: "Two A/B variants designed for CTR" },
+      { id: "assembly", label: "Assembly", icon: "⚡", desc: "FFmpeg render: video + audio + subtitles + music" },
+      { id: "review", label: "Review", icon: "👁", desc: "Preview final video before publishing" },
+      { id: "publish", label: "Publish", icon: "🚀", desc: "Upload to YouTube with metadata & A/B thumbnails" },
+    ];
+
+    const VOICE_OPTIONS = [
+      { id: "marcus", name: "Marcus", style: "Deep, authoritative", preview: "Male — Confident narrator" },
+      { id: "elena", name: "Elena", style: "Warm, empathetic", preview: "Female — Storyteller" },
+      { id: "kai", name: "Kai", style: "Energetic, young", preview: "Male — Motivational" },
+      { id: "nova", name: "Nova", style: "Calm, measured", preview: "Female — Documentary" },
+    ];
+
+    const STOCK_CLIPS = [
+      { id: 1, time: "0:00-0:30", query: "person waking up morning alarm", desc: "Morning routine montage", thumb: "🌅" },
+      { id: 2, time: "0:30-2:15", query: "person struggling gym motivation", desc: "Willpower struggle B-roll", thumb: "💪" },
+      { id: 3, time: "2:15-4:30", query: "brain neural pathways science", desc: "Neuroscience visuals", thumb: "🧠" },
+      { id: 4, time: "4:30-7:00", query: "organized workspace productivity", desc: "Environment design shots", thumb: "🏗" },
+      { id: 5, time: "7:00-8:00", query: "sunrise success achievement", desc: "Inspirational closing", thumb: "🌄" },
+    ];
+
+    // — Utility Components —
+
+    function Badge({ children, color = "#6EE7B7", style = {} }) {
+      return (
+        <span style={{
+          display: "inline-block", padding: "3px 10px", borderRadius: 99,
+          fontSize: 10, fontWeight: 600, letterSpacing: 0.6, textTransform: "uppercase",
+          background: color + "15", color, border: `1px solid ${color}30`, ...style,
+        }}>{children}</span>
+      );
+    }
+
+    function StepIndicator({ step, index, currentStep, completedSteps }) {
+      const isActive = currentStep === index;
+      const isComplete = completedSteps.includes(index);
+      const isPending = !isActive && !isComplete;
+
+      return (
+        <div style={{
+          display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 10,
+          background: isActive ? "rgba(110,231,183,0.08)" : "transparent",
+          border: isActive ? "1px solid rgba(110,231,183,0.2)" : "1px solid transparent",
+          opacity: isPending ? 0.4 : 1, transition: "all 0.3s",
+          cursor: isComplete ? "pointer" : "default",
+        }}>
+          <div style={{
+            width: 28, height: 28, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 14,
+            background: isComplete ? "rgba(110,231,183,0.15)" : isActive ? "rgba(110,231,183,0.1)" : "rgba(255,255,255,0.04)",
+            border: isComplete ? "1px solid rgba(110,231,183,0.3)" : "1px solid rgba(255,255,255,0.08)",
+          }}>
+            {isComplete ? "✓" : step.icon}
+          </div>
+          <div>
+            <div style={{
+              fontSize: 12, fontWeight: 600, letterSpacing: 0.2,
+              color: isActive ? "#6EE7B7" : isComplete ? "#AAA" : "#555",
+            }}>{step.label}</div>
+          </div>
+        </div>
+      );
+    }
+
+    // — MAIN APP —
+    function CreatorPulsePipeline() {
+      const [phase, setPhase] = useState("prompt");
+      const [prompt, setPrompt] = useState("");
+      const [currentStep, setCurrentStep] = useState(0);
+      const [completedSteps, setCompletedSteps] = useState([]);
+      const [activePreview, setActivePreview] = useState(null);
+      const [generatingStep, setGeneratingStep] = useState(null);
+      const [stepProgress, setStepProgress] = useState(0);
+      const [selectedVoice, setSelectedVoice] = useState("marcus");
+      const [selectedThumb, setSelectedThumb] = useState(null);
+      const [editingScript, setEditingScript] = useState(false);
+      const [showPublishSuccess, setShowPublishSuccess] = useState(false);
+
+      const simulateStep = useCallback((stepIndex, duration = 2500) => {
+        setGeneratingStep(stepIndex);
+        setStepProgress(0);
+        const interval = 50;
+        const steps = duration / interval;
+        let current = 0;
+        const timer = setInterval(() => {
+          current++;
+          setStepProgress(Math.min((current / steps) * 100, 100));
+          if (current >= steps) {
+            clearInterval(timer);
+            setCompletedSteps(prev => [...prev, stepIndex]);
+            setGeneratingStep(null);
+            setCurrentStep(stepIndex + 1);
+            setActivePreview(PIPELINE_STEPS[stepIndex].id);
+          }
+        }, interval);
+      }, []);
+
+      const startGeneration = () => {
+        if (!prompt.trim()) return;
+        setPhase("generating");
+        setTimeout(() => {
+          setPhase("pipeline");
+          simulateStep(0, 3000);
+        }, 1500);
+      };
+
+      const advanceStep = () => {
+        if (currentStep < PIPELINE_STEPS.length) {
+          simulateStep(currentStep, 2000 + Math.random() * 2000);
+        }
+      };
+
+      const handlePublish = () => {
+        simulateStep(currentStep, 3000);
+        setTimeout(() => {
+          setPhase("complete");
+          setShowPublishSuccess(true);
+        }, 3500);
+      };
+
+      return (
+        <div style={{
+          minHeight: "100vh", background: "#08080D", color: "#E0E0E8",
+          fontFamily: "'DM Sans', 'Segoe UI', system-ui, sans-serif",
+        }}>
+
+          {/* — HEADER — */}
+          <header style={{
+            padding: "14px 28px", display: "flex", alignItems: "center", justifyContent: "space-between",
+            borderBottom: "1px solid rgba(255,255,255,0.05)", background: "rgba(8,8,13,0.9)",
+            backdropFilter: "blur(12px)", position: "sticky", top: 0, zIndex: 100,
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{
+                width: 32, height: 32, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center",
+                background: "linear-gradient(135deg, #6EE7B7, #3B82F6)", fontSize: 15, fontWeight: 700, color: "#08080D",
+              }}>⚡</div>
+              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: 14, letterSpacing: -0.3 }}>
+                CreatorPulse
+              </span>
+              <Badge color="#3B82F6">Studio</Badge>
+            </div>
+            {phase === "pipeline" && (
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <span style={{ fontSize: 11, color: "#666" }}>
+                  {completedSteps.length}/{PIPELINE_STEPS.length} steps
+                </span>
+                <div style={{ width: 120, height: 3, background: "rgba(255,255,255,0.06)", borderRadius: 2 }}>
+                  <div style={{
+                    width: `${(completedSteps.length / PIPELINE_STEPS.length) * 100}%`,
+                    height: "100%", background: "linear-gradient(90deg, #6EE7B7, #3B82F6)",
+                    borderRadius: 2, transition: "width 0.5s ease",
+                  }} />
+                </div>
+              </div>
+            )}
+          </header>
+
+          {/* === PHASE: PROMPT INPUT === */}
+          {phase === "prompt" && (
+            <div style={{ maxWidth: 700, margin: "0 auto", padding: "80px 24px", textAlign: "center" }} className="fade-up">
+              <div style={{ fontSize: 40, marginBottom: 20 }}>🎬</div>
+              <h1 style={{ fontSize: 30, fontWeight: 700, letterSpacing: -1, marginBottom: 8 }}>
+                Prompt to Publish
+              </h1>
+              <p style={{ color: "#666", fontSize: 14, marginBottom: 40, lineHeight: 1.6 }}>
+                Describe your video idea. We'll generate the script, voiceover, visuals,
+                thumbnails, and metadata — ready to publish on YouTube.
+              </p>
+
+              <div className="card" style={{ padding: 4, marginBottom: 20 }}>
+                <textarea
+                  value={prompt}
+                  onChange={e => setPrompt(e.target.value)}
+                  placeholder="e.g. A motivational video about why discipline is not about willpower — it's about building systems. Target audience: 20-35 year olds interested in self-improvement. Tone: calm authority, not hype. Length: ~8 minutes."
+                  style={{
+                    width: "100%", minHeight: 140, padding: "18px 20px", borderRadius: 14,
+                    background: "transparent", border: "none", color: "#E0E0E8",
+                    fontSize: 14, lineHeight: 1.7, fontFamily: "inherit", resize: "vertical",
+                  }}
+                />
+              </div>
+
+              {/* Quick presets */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center", marginBottom: 28 }}>
+                {[
+                  "Motivational / Self-improvement",
+                  "Dark History / True Crime",
+                  "Finance / Investing",
+                  "Science Explainer",
+                  "Tech Reviews",
+                ].map(preset => (
+                  <button key={preset} onClick={() => setPrompt(p => p + (p ? " " : "") + `Niche: ${preset}.`)} style={{
+                    padding: "6px 14px", borderRadius: 99, border: "1px solid rgba(255,255,255,0.08)",
+                    background: "rgba(255,255,255,0.03)", color: "#888", fontSize: 12, cursor: "pointer",
+                    fontFamily: "inherit", transition: "all 0.2s",
+                  }}
+                    onMouseOver={e => { e.target.style.borderColor = "rgba(110,231,183,0.3)"; e.target.style.color = "#6EE7B7"; }}
+                    onMouseOut={e => { e.target.style.borderColor = "rgba(255,255,255,0.08)"; e.target.style.color = "#888"; }}
+                  >{preset}</button>
+                ))}
+              </div>
+
+              <button onClick={startGeneration} className="glow-btn" disabled={!prompt.trim()} style={{
+                padding: "14px 44px", borderRadius: 14, border: "none", cursor: prompt.trim() ? "pointer" : "not-allowed",
+                background: prompt.trim() ? "linear-gradient(135deg, #6EE7B7, #3B82F6)" : "#222",
+                color: prompt.trim() ? "#08080D" : "#555",
+                fontWeight: 700, fontSize: 15, fontFamily: "inherit", letterSpacing: 0.3,
+                transition: "transform 0.2s", position: "relative", zIndex: 1,
+              }}
+                onMouseOver={e => prompt.trim() && (e.target.style.transform = "scale(1.03)")}
+                onMouseOut={e => e.target.style.transform = "scale(1)"}
+              >
+                Generate Video →
+              </button>
+
+              <div style={{ marginTop: 20, fontSize: 12, color: "#444" }}>
+                Estimated cost: ~$2.80 · Processing time: ~4 min
+              </div>
+            </div>
+          )}
+
+          {/* === PHASE: GENERATING === */}
+          {phase === "generating" && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "70vh" }}>
+              <div style={{ textAlign: "center" }} className="fade-up">
+                <div style={{
+                  width: 80, height: 80, borderRadius: 20, margin: "0 auto 24px",
+                  background: "rgba(110,231,183,0.06)", border: "1px solid rgba(110,231,183,0.15)",
+                  display: "flex", alignItems: "center", justifyContent: "center", fontSize: 36,
+                  animation: "pulseRing 2s ease infinite",
+                }}>🧠</div>
+                <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 8 }}>Analyzing your prompt...</div>
+                <div style={{ fontSize: 13, color: "#555" }}>Planning script structure, identifying visual style, selecting voice tone</div>
+              </div>
+            </div>
+          )}
+
+          {/* === PHASE: PIPELINE === */}
+          {phase === "pipeline" && (
+            <div style={{ display: "flex", height: "calc(100vh - 55px)" }}>
+
+              {/* Left: Step Navigator */}
+              <aside style={{
+                width: 220, padding: "20px 12px", borderRight: "1px solid rgba(255,255,255,0.05)",
+                display: "flex", flexDirection: "column", gap: 4, overflowY: "auto",
+                background: "rgba(255,255,255,0.01)",
+              }}>
+                <div style={{ fontSize: 10, color: "#555", textTransform: "uppercase", letterSpacing: 1.5, padding: "4px 12px", marginBottom: 8 }}>
+                  Pipeline Steps
+                </div>
+                {PIPELINE_STEPS.map((step, i) => (
+                  <div key={step.id} onClick={() => completedSteps.includes(i) && setActivePreview(step.id)}>
+                    <StepIndicator step={step} index={i} currentStep={currentStep} completedSteps={completedSteps} />
+                  </div>
+                ))}
+
+                <div style={{
+                  marginTop: "auto", padding: "16px 12px", borderTop: "1px solid rgba(255,255,255,0.05)",
+                }}>
+                  <div style={{ fontSize: 10, color: "#555", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>
+                    Running Cost
+                  </div>
+                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 20, fontWeight: 600, color: "#6EE7B7" }}>
+                    ${(completedSteps.length * 0.42).toFixed(2)}
+                  </div>
+                  <div style={{ fontSize: 11, color: "#444", marginTop: 2 }}>of ~$2.80 est.</div>
+                </div>
+              </aside>
+
+              {/* Center: Content Preview */}
+              <main style={{ flex: 1, overflow: "auto", padding: "24px 32px" }}>
+
+                {/* Active generation progress */}
+                {generatingStep !== null && (
+                  <div className="card fade-up" style={{ padding: 20, marginBottom: 20 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                      <div style={{
+                        width: 36, height: 36, borderRadius: 10,
+                        background: "rgba(110,231,183,0.1)", border: "1px solid rgba(110,231,183,0.2)",
+                        display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18,
+                        animation: "pulseRing 1.5s ease infinite",
+                      }}>{PIPELINE_STEPS[generatingStep].icon}</div>
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: 14 }}>Generating: {PIPELINE_STEPS[generatingStep].label}</div>
+                        <div style={{ fontSize: 12, color: "#666" }}>{PIPELINE_STEPS[generatingStep].desc}</div>
+                      </div>
+                      <div style={{ marginLeft: "auto", fontFamily: "'JetBrains Mono', monospace", fontSize: 13, color: "#6EE7B7" }}>
+                        {Math.round(stepProgress)}%
+                      </div>
+                    </div>
+                    <div style={{ height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
+                      <div style={{
+                        width: `${stepProgress}%`, height: "100%",
+                        background: "linear-gradient(90deg, #6EE7B7, #3B82F6)",
+                        borderRadius: 2, transition: "width 0.1s linear",
+                      }} />
+                    </div>
+                    <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+                      {[80, 65, 90, 50].map((w, i) => (
+                        <div key={i} style={{
+                          width: `${w}%`, height: 8, borderRadius: 4,
+                          background: "linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.06) 50%, rgba(255,255,255,0.03) 75%)",
+                          backgroundSize: "200% 100%", animation: "shimmer 1.5s ease infinite",
+                        }} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Script Preview */}
+                {activePreview === "script" && generatingStep === null && (
+                  <div className="fade-up">
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                      <h2 style={{ fontSize: 18, fontWeight: 600 }}>📝 Generated Script</h2>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button onClick={() => setEditingScript(!editingScript)} style={{
+                          padding: "6px 16px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)",
+                          background: editingScript ? "rgba(110,231,183,0.1)" : "transparent",
+                          color: editingScript ? "#6EE7B7" : "#888", fontSize: 12, cursor: "pointer", fontFamily: "inherit",
+                        }}>{editingScript ? "Done Editing" : "Edit Script"}</button>
+                        <Badge color="#6EE7B7">8:02 estimated</Badge>
+                      </div>
+                    </div>
+                    <div className="card" style={{ padding: 24 }}>
+                      {editingScript ? (
+                        <textarea defaultValue={MOCK_SCRIPT} style={{
+                          width: "100%", minHeight: 400, background: "transparent", border: "none",
+                          color: "#CCC", fontFamily: "'JetBrains Mono', monospace", fontSize: 13,
+                          lineHeight: 1.8, resize: "vertical",
+                        }} />
+                      ) : (
+                        <pre style={{
+                          fontFamily: "'JetBrains Mono', monospace", fontSize: 12.5, lineHeight: 1.8,
+                          color: "#AAA", whiteSpace: "pre-wrap", wordWrap: "break-word",
+                        }}>
+                          {MOCK_SCRIPT.split('\n').map((line, i) => (
+                            <span key={i} style={{
+                              color: line.startsWith('[') ? '#6EE7B7' : line.startsWith('"') ? '#93C5FD' : '#999',
+                              display: "block",
+                            }}>{line}</span>
+                          ))}
+                        </pre>
+                      )}
+                    </div>
+                    <div style={{ marginTop: 16, display: "flex", justifyContent: "flex-end" }}>
+                      <button onClick={advanceStep} style={{
+                        padding: "10px 28px", borderRadius: 10, border: "none", cursor: "pointer",
+                        background: "linear-gradient(135deg, #6EE7B7, #3B82F6)", color: "#08080D",
+                        fontWeight: 600, fontSize: 13, fontFamily: "inherit",
+                      }}>Approve & Continue →</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* SEO Preview */}
+                {activePreview === "seo" && generatingStep === null && (
+                  <div className="fade-up">
+                    <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 16 }}>🔍 SEO & Metadata</h2>
+                    <div style={{ marginBottom: 20 }}>
+                      <div style={{ fontSize: 12, color: "#666", marginBottom: 10, textTransform: "uppercase", letterSpacing: 1 }}>
+                        Title Variants (pick one or edit)
+                      </div>
+                      {MOCK_SEO.titles.map((t, i) => (
+                        <div key={i} className="card" style={{
+                          padding: "14px 18px", marginBottom: 8, cursor: "pointer",
+                          display: "flex", alignItems: "center", justifyContent: "space-between",
+                          border: i === 0 ? "1px solid rgba(110,231,183,0.25)" : undefined,
+                        }}>
+                          <span style={{ fontSize: 14, fontWeight: 500 }}>{t}</span>
+                          {i === 0 && <Badge color="#6EE7B7">Recommended</Badge>}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="card" style={{ padding: 20, marginBottom: 20 }}>
+                      <div style={{ fontSize: 12, color: "#666", marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>Description</div>
+                      <pre style={{
+                        fontFamily: "'DM Sans', sans-serif", fontSize: 13, lineHeight: 1.7,
+                        color: "#999", whiteSpace: "pre-wrap",
+                      }}>{MOCK_SEO.description}</pre>
+                    </div>
+                    <div className="card" style={{ padding: 20, marginBottom: 20 }}>
+                      <div style={{ fontSize: 12, color: "#666", marginBottom: 10, textTransform: "uppercase", letterSpacing: 1 }}>Tags</div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        {MOCK_SEO.tags.map(tag => (
+                          <span key={tag} style={{
+                            padding: "5px 12px", borderRadius: 99, fontSize: 12,
+                            background: "rgba(59,130,246,0.08)", color: "#93C5FD",
+                            border: "1px solid rgba(59,130,246,0.15)",
+                          }}>#{tag}</span>
+                        ))}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                      <button onClick={advanceStep} style={{
+                        padding: "10px 28px", borderRadius: 10, border: "none", cursor: "pointer",
+                        background: "linear-gradient(135deg, #6EE7B7, #3B82F6)", color: "#08080D",
+                        fontWeight: 600, fontSize: 13, fontFamily: "inherit",
+                      }}>Approve & Continue →</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Voiceover Preview */}
+                {activePreview === "voice" && generatingStep === null && (
+                  <div className="fade-up">
+                    <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 16 }}>🎙 Voiceover</h2>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
+                      {VOICE_OPTIONS.map(v => (
+                        <div key={v.id} onClick={() => setSelectedVoice(v.id)} className="card" style={{
+                          padding: 18, cursor: "pointer",
+                          border: selectedVoice === v.id ? "1px solid rgba(110,231,183,0.3)" : undefined,
+                          background: selectedVoice === v.id ? "rgba(110,231,183,0.04)" : undefined,
+                        }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                            <div style={{
+                              width: 36, height: 36, borderRadius: 10,
+                              background: selectedVoice === v.id ? "rgba(110,231,183,0.12)" : "rgba(255,255,255,0.04)",
+                              display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16,
+                            }}>🔊</div>
+                            <div>
+                              <div style={{ fontWeight: 600, fontSize: 14 }}>{v.name}</div>
+                              <div style={{ fontSize: 11, color: "#666" }}>{v.style}</div>
+                            </div>
+                            {selectedVoice === v.id && <Badge color="#6EE7B7" style={{ marginLeft: "auto" }}>Selected</Badge>}
+                          </div>
+                          <div style={{ fontSize: 12, color: "#777" }}>{v.preview}</div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 2, marginTop: 10, height: 24 }}>
+                            {Array.from({ length: 40 }, (_, i) => (
+                              <div key={i} style={{
+                                width: 3, borderRadius: 2,
+                                height: `${8 + Math.sin(i * 0.5) * 12 + Math.random() * 8}px`,
+                                background: selectedVoice === v.id
+                                  ? `rgba(110,231,183,${0.3 + Math.random() * 0.5})`
+                                  : `rgba(255,255,255,${0.05 + Math.random() * 0.1})`,
+                                transition: "all 0.3s",
+                              }} />
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="card" style={{ padding: 16, display: "flex", alignItems: "center", gap: 16, marginBottom: 20 }}>
+                      <div style={{
+                        width: 44, height: 44, borderRadius: 99, background: "rgba(110,231,183,0.1)",
+                        border: "1px solid rgba(110,231,183,0.2)", display: "flex", alignItems: "center",
+                        justifyContent: "center", fontSize: 18, cursor: "pointer",
+                      }}>▶</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 4 }}>Preview: First 30 seconds</div>
+                        <div style={{ height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 2 }}>
+                          <div style={{ width: "35%", height: "100%", background: "#6EE7B7", borderRadius: 2 }} />
+                        </div>
+                      </div>
+                      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: "#666" }}>0:11 / 0:30</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                      <button onClick={advanceStep} style={{
+                        padding: "10px 28px", borderRadius: 10, border: "none", cursor: "pointer",
+                        background: "linear-gradient(135deg, #6EE7B7, #3B82F6)", color: "#08080D",
+                        fontWeight: 600, fontSize: 13, fontFamily: "inherit",
+                      }}>Approve & Continue →</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Visuals Preview */}
+                {activePreview === "visuals" && generatingStep === null && (
+                  <div className="fade-up">
+                    <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 16 }}>🎬 Visual Segments</h2>
+                    <p style={{ fontSize: 13, color: "#666", marginBottom: 20, lineHeight: 1.5 }}>
+                      Stock clips and AI images matched to each script section. Swap any clip by clicking it.
+                    </p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      {STOCK_CLIPS.map((clip, i) => (
+                        <div key={clip.id} className="card" style={{
+                          padding: 16, display: "flex", alignItems: "center", gap: 16,
+                          animation: `fadeUp 0.4s ease ${i * 80}ms forwards`, opacity: 0,
+                        }}>
+                          <div style={{
+                            width: 72, height: 48, borderRadius: 8,
+                            background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
+                            display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24,
+                            flexShrink: 0,
+                          }}>{clip.thumb}</div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 2 }}>{clip.desc}</div>
+                            <div style={{ fontSize: 11, color: "#555" }}>
+                              <span style={{ color: "#6EE7B7", fontFamily: "'JetBrains Mono', monospace" }}>{clip.time}</span>
+                              {" · "}{clip.query}
+                            </div>
+                          </div>
+                          <button style={{
+                            padding: "5px 12px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)",
+                            background: "transparent", color: "#888", fontSize: 11, cursor: "pointer", fontFamily: "inherit",
+                          }}>Swap</button>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ marginTop: 16, display: "flex", justifyContent: "flex-end" }}>
+                      <button onClick={advanceStep} style={{
+                        padding: "10px 28px", borderRadius: 10, border: "none", cursor: "pointer",
+                        background: "linear-gradient(135deg, #6EE7B7, #3B82F6)", color: "#08080D",
+                        fontWeight: 600, fontSize: 13, fontFamily: "inherit",
+                      }}>Approve & Continue →</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Thumbnails Preview */}
+                {activePreview === "thumbnails" && generatingStep === null && (
+                  <div className="fade-up">
+                    <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6 }}>🖼 Thumbnail A/B Test</h2>
+                    <p style={{ fontSize: 13, color: "#666", marginBottom: 20 }}>
+                      Both versions will be uploaded. YouTube's Test & Compare picks the winner.
+                    </p>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
+                      {["A", "B"].map((variant, i) => (
+                        <div key={variant} onClick={() => setSelectedThumb(variant)} className="card" style={{
+                          padding: 16, cursor: "pointer", textAlign: "center",
+                          border: selectedThumb === variant ? "1px solid rgba(110,231,183,0.3)" : undefined,
+                        }}>
+                          <div style={{
+                            width: "100%", aspectRatio: "16/9", borderRadius: 12, marginBottom: 12,
+                            background: i === 0
+                              ? "linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)"
+                              : "linear-gradient(135deg, #2d1b2e 0%, #1a1a2e 50%, #162447 100%)",
+                            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                            border: "1px solid rgba(255,255,255,0.08)", position: "relative", overflow: "hidden",
+                          }}>
+                            <div style={{ fontSize: 11, color: "#6EE7B7", fontWeight: 700, letterSpacing: 2, marginBottom: 4 }}>
+                              VARIANT {variant}
+                            </div>
+                            <div style={{ fontSize: 18, fontWeight: 700, textAlign: "center", padding: "0 20px", lineHeight: 1.3 }}>
+                              {i === 0 ? "DISCIPLINE" : "WILLPOWER"}
+                            </div>
+                            <div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>
+                              {i === 0 ? "IS A LIE" : "ALWAYS FAILS"}
+                            </div>
+                            <div style={{
+                              position: "absolute", bottom: 8, right: 8,
+                              background: "rgba(0,0,0,0.6)", padding: "2px 6px", borderRadius: 4,
+                              fontSize: 10, fontFamily: "'JetBrains Mono', monospace",
+                            }}>8:02</div>
+                          </div>
+                          <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 4 }}>
+                            {i === 0 ? "Dark minimal + bold text" : "Moody gradient + contrast text"}
+                          </div>
+                          <div style={{ fontSize: 11, color: "#555" }}>
+                            Predicted CTR: <span style={{ color: "#6EE7B7" }}>{i === 0 ? "7.4%" : "6.8%"}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                      <button onClick={advanceStep} style={{
+                        padding: "10px 28px", borderRadius: 10, border: "none", cursor: "pointer",
+                        background: "linear-gradient(135deg, #6EE7B7, #3B82F6)", color: "#08080D",
+                        fontWeight: 600, fontSize: 13, fontFamily: "inherit",
+                      }}>Approve & Continue →</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Assembly Preview */}
+                {activePreview === "assembly" && generatingStep === null && (
+                  <div className="fade-up">
+                    <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 16 }}>⚡ Video Assembly</h2>
+                    <div className="card" style={{ padding: 24, marginBottom: 20 }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 20 }}>
+                        {[
+                          { label: "Duration", value: "8:02", icon: "⏱" },
+                          { label: "Resolution", value: "1080p", icon: "📐" },
+                          { label: "Size", value: "~185MB", icon: "💾" },
+                          { label: "Format", value: "MP4/H.264", icon: "🎞" },
+                        ].map(s => (
+                          <div key={s.label} style={{ textAlign: "center" }}>
+                            <div style={{ fontSize: 20, marginBottom: 6 }}>{s.icon}</div>
+                            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: 15 }}>{s.value}</div>
+                            <div style={{ fontSize: 10, color: "#555", textTransform: "uppercase", letterSpacing: 1, marginTop: 2 }}>{s.label}</div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div style={{ fontSize: 11, color: "#666", marginBottom: 10, textTransform: "uppercase", letterSpacing: 1 }}>Tracks</div>
+                      {[
+                        { name: "Video", color: "#3B82F6", desc: "5 segments · stock + AI" },
+                        { name: "Voiceover", color: "#6EE7B7", desc: "Marcus · ElevenLabs" },
+                        { name: "Subtitles", color: "#F59E0B", desc: "Auto-generated · burned in" },
+                        { name: "Music", color: "#A78BFA", desc: "Ambient · low volume" },
+                      ].map((track, i) => (
+                        <div key={track.name} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
+                          <div style={{ width: 70, fontSize: 11, color: "#888", textAlign: "right" }}>{track.name}</div>
+                          <div style={{
+                            flex: 1, height: 24, borderRadius: 6,
+                            background: `${track.color}10`, border: `1px solid ${track.color}25`,
+                            display: "flex", alignItems: "center", paddingLeft: 10,
+                          }}>
+                            <div style={{
+                              width: `${85 + Math.random() * 15}%`, height: 8, borderRadius: 4,
+                              background: `${track.color}40`,
+                            }} />
+                          </div>
+                          <div style={{ width: 140, fontSize: 11, color: "#555" }}>{track.desc}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                      <button onClick={advanceStep} style={{
+                        padding: "10px 28px", borderRadius: 10, border: "none", cursor: "pointer",
+                        background: "linear-gradient(135deg, #6EE7B7, #3B82F6)", color: "#08080D",
+                        fontWeight: 600, fontSize: 13, fontFamily: "inherit",
+                      }}>Continue to Review →</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Review Preview */}
+                {activePreview === "review" && generatingStep === null && (
+                  <div className="fade-up">
+                    <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 16 }}>👁 Final Review</h2>
+                    <div className="card" style={{ padding: 0, overflow: "hidden", marginBottom: 20 }}>
+                      <div style={{
+                        width: "100%", aspectRatio: "16/9",
+                        background: "linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #0a0a15 100%)",
+                        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                        position: "relative",
+                      }}>
+                        <div style={{
+                          width: 64, height: 64, borderRadius: 99, background: "rgba(255,255,255,0.1)",
+                          display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28,
+                          cursor: "pointer", backdropFilter: "blur(4px)",
+                        }}>▶</div>
+                        <div style={{ position: "absolute", bottom: 12, left: 16, right: 16, display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ fontSize: 11, fontFamily: "'JetBrains Mono', monospace", color: "#999" }}>0:00</span>
+                          <div style={{ flex: 1, height: 3, background: "rgba(255,255,255,0.15)", borderRadius: 2 }}>
+                            <div style={{ width: 0, height: "100%", background: "#6EE7B7", borderRadius: 2 }} />
+                          </div>
+                          <span style={{ fontSize: 11, fontFamily: "'JetBrains Mono', monospace", color: "#999" }}>8:02</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="card" style={{ padding: 20, marginBottom: 20 }}>
+                      <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Publish Summary</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "120px 1fr", gap: "10px 16px", fontSize: 13 }}>
+                        <span style={{ color: "#666" }}>Title</span>
+                        <span style={{ fontWeight: 500 }}>{MOCK_SEO.titles[0]}</span>
+                        <span style={{ color: "#666" }}>Duration</span>
+                        <span>8:02</span>
+                        <span style={{ color: "#666" }}>Voice</span>
+                        <span>Marcus — Deep, authoritative</span>
+                        <span style={{ color: "#666" }}>Thumbnails</span>
+                        <span>2 variants (A/B test enabled)</span>
+                        <span style={{ color: "#666" }}>Tags</span>
+                        <span style={{ color: "#93C5FD" }}>{MOCK_SEO.tags.slice(0, 5).map(t => `#${t}`).join(", ")}</span>
+                        <span style={{ color: "#666" }}>Schedule</span>
+                        <span>Thursday 19:00 CET <span style={{ color: "#6EE7B7" }}>(peak hour)</span></span>
+                        <span style={{ color: "#666" }}>Est. cost</span>
+                        <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>$2.76</span>
+                      </div>
+                    </div>
+
+                    <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
+                      <button style={{
+                        padding: "10px 24px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.1)",
+                        background: "transparent", color: "#888", fontWeight: 500, fontSize: 13,
+                        cursor: "pointer", fontFamily: "inherit",
+                      }}>Save Draft</button>
+                      <button onClick={handlePublish} className="glow-btn" style={{
+                        padding: "12px 32px", borderRadius: 12, border: "none", cursor: "pointer",
+                        background: "linear-gradient(135deg, #6EE7B7, #3B82F6)", color: "#08080D",
+                        fontWeight: 700, fontSize: 14, fontFamily: "inherit", position: "relative", zIndex: 1,
+                      }}>🚀 Publish to YouTube</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Waiting state */}
+                {activePreview === null && generatingStep === null && (
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "60vh", color: "#333" }}>
+                    <div style={{ textAlign: "center" }}>
+                      <div style={{ fontSize: 32, marginBottom: 12 }}>⏳</div>
+                      <div style={{ fontSize: 14 }}>Waiting for first step to complete...</div>
+                    </div>
+                  </div>
+                )}
+              </main>
+            </div>
+          )}
+
+          {/* === PHASE: COMPLETE === */}
+          {phase === "complete" && (
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "center", minHeight: "80vh",
+            }}>
+              <div style={{ textAlign: "center", maxWidth: 500, animation: "successPop 0.6s ease forwards" }}>
+                <div style={{
+                  width: 100, height: 100, borderRadius: 99, margin: "0 auto 28px",
+                  background: "rgba(110,231,183,0.1)", border: "2px solid rgba(110,231,183,0.3)",
+                  display: "flex", alignItems: "center", justifyContent: "center", fontSize: 44,
+                }}>🚀</div>
+                <h1 style={{ fontSize: 28, fontWeight: 700, letterSpacing: -0.5, marginBottom: 8 }}>
+                  Video Published!
+                </h1>
+                <p style={{ color: "#666", fontSize: 14, lineHeight: 1.6, marginBottom: 28 }}>
+                  <strong style={{ color: "#E0E0E8" }}>"{MOCK_SEO.titles[0]}"</strong> is now live on YouTube.
+                  A/B thumbnail test is running. We'll notify you when results are in.
+                </p>
+
+                <div className="card" style={{ padding: 20, marginBottom: 24, textAlign: "left" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, textAlign: "center" }}>
+                    <div>
+                      <div style={{ fontSize: 20, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: "#6EE7B7" }}>$2.76</div>
+                      <div style={{ fontSize: 10, color: "#555", textTransform: "uppercase", letterSpacing: 1, marginTop: 2 }}>Total Cost</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 20, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>3:47</div>
+                      <div style={{ fontSize: 10, color: "#555", textTransform: "uppercase", letterSpacing: 1, marginTop: 2 }}>Gen Time</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 20, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: "#3B82F6" }}>8:02</div>
+                      <div style={{ fontSize: 10, color: "#555", textTransform: "uppercase", letterSpacing: 1, marginTop: 2 }}>Video Length</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
+                  <button onClick={() => {
+                    setPhase("prompt"); setPrompt(""); setCurrentStep(0);
+                    setCompletedSteps([]); setActivePreview(null); setSelectedThumb(null);
+                  }} style={{
+                    padding: "10px 24px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.1)",
+                    background: "transparent", color: "#888", fontWeight: 500, fontSize: 13,
+                    cursor: "pointer", fontFamily: "inherit",
+                  }}>Create Another</button>
+                  <button style={{
+                    padding: "10px 24px", borderRadius: 10, border: "none", cursor: "pointer",
+                    background: "linear-gradient(135deg, #6EE7B7, #3B82F6)", color: "#08080D",
+                    fontWeight: 600, fontSize: 13, fontFamily: "inherit",
+                  }}>View on YouTube ↗</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    ReactDOM.render(<CreatorPulsePipeline />, document.getElementById("root"));
+  </script>
+</body>
+</html>
