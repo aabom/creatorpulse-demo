@@ -19,6 +19,8 @@ CreatorPulse is an AI-powered SaaS platform that turns a single text prompt into
 
 Each step includes an approval gate so the creator stays in control of the output.
 
+The production version is built with .NET 8, Blazor Server, Azure Durable Functions, PostgreSQL, and SignalR.
+
 ## Why CreatorPulse?
 
 ### The Problem
