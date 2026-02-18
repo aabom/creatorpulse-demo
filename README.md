@@ -53,11 +53,33 @@ CreatorPulse replaces the entire toolchain with one subscription. You type a pro
 
 No API keys. No separate subscriptions. No technical setup.
 
-### Pricing
+### 🔧 Backend
 
-| Plan | Price | Videos/month | Best for |
-|---|---|---|---|
-| Starter | $29/mo | 5 | Testing the waters |
-| Creator | $69/mo | 15 | Consistent weekly uploads |
-| Pro | $149/mo | 30 | Daily content machines |
-| Agency | $299/mo | 100 | Managing multiple channels |
+| | What | Why |
+|---|---|---|
+| ⚙️ | **.NET 8 / C#** | Strongly typed, first-class Azure integration, and the entire team works in one language across API, pipeline, and frontend |
+| 🌐 | **ASP.NET Core Web API** | REST endpoints with built-in DI, middleware pipeline, and auto-generated Swagger docs |
+| 🖥️ | **Blazor Server** | Fullstack C# — no separate JavaScript framework. Server-side rendering with real-time UI updates over SignalR |
+| 📡 | **SignalR** | Pushes pipeline status changes live to the browser. Steps go from Pending → Running → Completed without polling or page refresh |
+| ⛓️ | **Azure Durable Functions** | The orchestration engine. Chains all 8 pipeline steps and natively supports `WaitForExternalEvent` — the pipeline literally pauses until the user approves, with zero custom queue infrastructure |
+| 🗃️ | **Entity Framework Core** | ORM with LINQ queries, migrations, and strongly typed models against PostgreSQL |
+
+### 💾 Database & Storage
+
+| | What | Why |
+|---|---|---|
+| 🐘 | **PostgreSQL 16** | JSONB columns for flexible data (script sections, SEO metadata, audience profiles) at a fraction of the cost of SQL Server. Runs locally via Docker, Azure Flexible Server in production |
+| ☁️ | **Azure Blob Storage** | Stores all generated media — voiceover MP3s, video segments, thumbnails, final MP4. Pay-per-GB pricing scales with actual usage |
+| 🧊 | **Azurite** | Local Blob Storage emulator. Full Azure Storage API compatibility without touching a cloud account during development |
+| 🐳 | **Docker** | PostgreSQL and Azurite run in containers. No installers, no PATH config. `docker rm -f` to nuke everything and start fresh |
+
+### 🤖 AI & External Services
+
+| | Service | Role |
+|---|---|---|
+| 🧠 | **Claude API** (Anthropic) | Script generation and SEO metadata. Best-in-class for long, structured text with specific tone and formatting requirements |
+| 🎙️ | **ElevenLabs** | Neural voiceover with emotion control and multiple voice profiles. Natural-sounding narration without hiring voice actors |
+| 🎨 | **DALL-E** (OpenAI) | Thumbnail generation and AI B-roll images. Simple API, $0.04/image |
+| 🎬 | **Pexels API** | Stock video matched to script sections. No rate limits, no cost |
+| 🔧 | **FFmpeg** | Video assembly — stitches voiceover, video segments, burned-in subtitles, and background music into final MP4. Industry standard, programmable via CLI |
+| 📺 | **YouTube Data API v3** | Publishing, metadata upload, and A/B thumbnail testing via OAuth against the creator's own channel |
